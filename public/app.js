@@ -2,7 +2,7 @@ import { VoiceCall } from './call.js';
 const $ = id => document.getElementById(id);
 let contacts = [], selected, call, switching = false, startedAt = 0, transcriptItems = [], pendingText = new Map();
 function notice(message) { $('notice').textContent = message; $('notice').hidden = !message; }
-function initials(name) { return name.trim().split(/\s+/).slice(0,2).map(x => x[0]).join('').toUpperCase(); }
+function initials(name) { return (name.match(/\p{L}[\p{L}\p{N}]*/gu) || [name]).slice(0,2).map(x => x[0]).join('').toUpperCase(); }
 function renderContacts() {
   $('contact-count').textContent = contacts.length;
   $('contacts').replaceChildren();

@@ -39,7 +39,7 @@ Each configured server has a single initialized connection. Hanging up stops onl
 
 ### Existing threads
 
-Get IDs from your controlling app-server client. The dialer resumes the exact configured thread; it does not silently create a substitute when an ID is wrong. An ordinary persisted thread must be accessible to that app-server's own `CODEX_HOME`. In-memory ephemeral threads exist only inside the backend process that created them.
+Get IDs from your controlling app-server client. The dialer resumes the exact configured thread; it does not silently create a substitute when an ID is wrong. If disk resume fails, the gateway accepts only the exact already-loaded ephemeral thread confirmed by `thread/read`; it never substitutes another ID. An ordinary persisted thread must be accessible to that app-server's own `CODEX_HOME`. In-memory ephemeral threads exist only inside the backend process that created them.
 
 The example intentionally contains placeholder IDs. It is a configuration guide, not a working pair of authenticated demo agents.
 

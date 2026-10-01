@@ -177,7 +177,15 @@ export function createGateway({ config: input, publicDir = PUBLIC, backendFactor
       try {
         await backend.connect();
         if (call.cancelled || call.finished) return;
-        await backend.request('thread/resume', { threadId: contact.threadId, excludeTurns: true });
+        try {
+          await backend.request('thread/resume', { threadId: contact.threadId, excludeTurns: true });
+        } catch (cause) {
+          if (cause.code !== 'rpc' || call.cancelled || call.finished) throw cause;
+          // In-memory ephemeral threads have no rollout to resume. Verify the exact
+          // loaded thread; realtime/start attaches this connection's listener itself.
+          const { thread } = await backend.request('thread/read', { threadId: contact.threadId, includeTurns: false });
+          if (thread?.id !== contact.threadId || thread.ephemeral !== true || !thread.status || thread.status.type === 'notLoaded') throw cause;
+        }
         if (call.cancelled || call.finished) return;
         call.startSent = true;
         await backend.request('thread/realtime/start', { threadId: contact.threadId, outputModality: 'audio', realtimeSessionId: call.sessionId, ...contact.realtime, ...(contact.transport === 'webrtc' ? { transport: { type: 'webrtc', sdp: message.sdp } } : {}) }, { onLateSettlement: (settlement) => { if (call.cancelled || call.finished) void recoverLateStart(call, settlement); } });

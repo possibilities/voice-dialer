@@ -334,3 +334,24 @@ test('timed-out unowned start never stops a pre-existing session and late reject
   await until(() => f.gateway.leases.size === 0);
   assert.equal(f.requests.some(request => request.method === 'thread/realtime/stop'), false);
 });
+
+
+test('loaded ephemeral thread falls back to exact thread/read after resume rejects', async (t) => {
+  const f = await fixture(t, { handler: (socket, request) => {
+    if (request.method === 'thread/resume') { socket.send(JSON.stringify({id:request.id,error:{code:-32600,message:'no rollout'}})); return true; }
+    if (request.method === 'thread/read') { reply(socket,request,{thread:{id:'existing-thread',ephemeral:true,status:{type:'idle'}}}); return true; }
+  } });
+  const a = await f.client(); start(a); await a.wait(isStatus('connected'));
+  assert.deepEqual(f.requests.find(r=>r.method==='thread/read').params,{threadId:'existing-thread',includeTurns:false});
+});
+
+test('fallback never substitutes wrong or unloaded ephemeral thread', async (t) => {
+  for (const thread of [{id:'other',ephemeral:true,status:{type:'idle'}},{id:'existing-thread',ephemeral:false,status:{type:'idle'}},{id:'existing-thread',ephemeral:true,status:{type:'notLoaded'}}]) {
+    const f = await fixture(t, { handler: (socket, request) => {
+      if (request.method === 'thread/resume') { socket.send(JSON.stringify({id:request.id,error:{code:-32600,message:'no rollout'}})); return true; }
+      if (request.method === 'thread/read') { reply(socket,request,{thread}); return true; }
+    } });
+    const a = await f.client(); start(a); await a.wait(isStatus('ended'));
+    assert.equal(f.requests.some(r=>r.method==='thread/realtime/start'),false);
+  }
+});

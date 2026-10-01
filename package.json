@@ -3,11 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test tests/*.test.js",
-    "check": "node --check src/server.js && node --check src/backend.js && node --check src/config.js && node --check public/app.js && node --check public/call.js && node --check public/pcm.js"
+    "check": "node --check src/server.js && node --check src/backend.js && node --check src/config.js && node --check public/app.js && node --check public/call.js && node --check public/pcm.js && node --check public/capture-worklet.js && node --check playwright.config.js && node --check e2e/dialer.spec.js",
+    "test:browser": "playwright test"
   },
-  "dependencies": { "ws": "8.18.3" }
+  "dependencies": {
+    "ws": "8.18.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
 }

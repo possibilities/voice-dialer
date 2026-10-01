@@ -90,3 +90,5 @@ npm test
 Node's built-in test runner exercises browser call resource ownership with fake media/peer/socket objects and gateway behavior against local fake JSON-RPC app-servers. GitHub Actions runs Node 22 and 24. This does not replace real-microphone, speaker, provider-authentication, latency, echo and interruption testing.
 
 No frontend bundler, framework or CDN is needed. `ws` is the only runtime dependency. The UI is responsive, keyboard-accessible and respects reduced-motion preferences.
+
+The separate Chromium CI job exercises the rendered desktop/mobile UI, actual browser fake-device PCM capture, mute, contact switching, hangup, a real browser-generated WebRTC offer, permission denial and a late permission grant after cancellation. Its app-server is a local test fixture: it makes **zero provider calls**, uses no account credentials, and does not establish authenticated end-to-end audio. Screenshots and failure traces are kept as the `browser-test-results` Actions artifact. Run locally with `npx playwright install chromium` then `npm run test:browser` in a browser-test-capable environment.

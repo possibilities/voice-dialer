@@ -1,0 +1,11 @@
+node_modules/
+config.json
+*.local.json
+.env
+.env.*
+!.env.example
+.runtime/
+*.log
+coverage/
+playwright-report/
+test-results/

@@ -1,0 +1,13 @@
+{
+  "name": "thread-voice-dialer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check src/server.js && node --check src/backend.js && node --check src/config.js && node --check public/app.js && node --check public/call.js && node --check public/pcm.js"
+  },
+  "dependencies": { "ws": "8.18.3" }
+}

@@ -1,0 +1,22 @@
+{
+  "host": "127.0.0.1",
+  "port": 4310,
+  "servers": {
+    "codex": { "url": "ws://127.0.0.1:4500" },
+    "opencode": {
+      "command": "node",
+      "args": ["/absolute/path/to/codex/external-orchestrator-bridge/src/main.js"],
+      "env": {
+        "CODEX_COMMAND": { "fromEnv": "CODEX_COMMAND" },
+        "OPENCODE_DIRECTORY": { "fromEnv": "OPENCODE_DIRECTORY" },
+        "OPENCODE_URL": { "fromEnv": "OPENCODE_URL" },
+        "BRIDGE_STATE_DIRECTORY": { "fromEnv": "BRIDGE_STATE_DIRECTORY" }
+      }
+    }
+  },
+  "contacts": [
+    { "id": "codex-project", "name": "Codex · Project", "server": "codex", "threadId": "REPLACE_WITH_EXISTING_CODEX_THREAD_ID", "transport": "webrtc" },
+    { "id": "codex-notes", "name": "Codex · Notes", "server": "codex", "threadId": "REPLACE_WITH_ANOTHER_EXISTING_THREAD_ID", "transport": "pcm" },
+    { "id": "opencode-project", "name": "OpenCode · Project", "server": "opencode", "threadId": "REPLACE_WITH_EXISTING_BRIDGE_HOST_THREAD_ID", "transport": "webrtc" }
+  ]
+}

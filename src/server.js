@@ -61,12 +61,13 @@ export function createGateway({ config: input, publicDir = PUBLIC, backendFactor
   async function cleanUp(call) {
     if (call.cleanup) return call.cleanup;
     call.cleanup = (async () => {
-      // The first stop is prompt; the second catches a start that completes after it.
-      const earlyStop = call.startSent ? stop(call) : Promise.resolve(true);
+      // Stop promptly only after our start is accepted/observed. A pending start
+      // could still reject because another client already owns realtime on this thread.
+      const earlyStop = call.started || call.startAccepted ? stop(call) : Promise.resolve(true);
       await call.startWork;
       await earlyStop;
       if (!call.startSent) { finish(call); return; }
-      const confirmed = await stop(call);
+      const confirmed = call.startRejected || ((call.started || call.startAccepted) && await stop(call));
       // A timed-out start may still complete later. Never hand its thread to a new call.
       finish(call, { uncertain: call.startUncertain || !confirmed });
     })();
@@ -77,13 +78,17 @@ export function createGateway({ config: input, publicDir = PUBLIC, backendFactor
     if (!call.cancelled) { call.cancelled = true; clearTimeout(call.startTimer); status(call, 'ending'); }
     void cleanUp(call);
   }
-  async function recoverLateStart(call, settled = false) {
-    if (settled) call.startUncertain = false;
+  async function recoverLateStart(call, settlement) {
+    if (settlement) {
+      call.startUncertain = false;
+      call.startAccepted = settlement.ok;
+      call.startRejected = !settlement.ok;
+    }
     if (call.recovering) return;
     call.recovering = true;
     try {
       await call.cleanup;
-      const confirmed = await stop(call);
+      const confirmed = call.startRejected || ((call.started || call.startAccepted) && await stop(call));
       if (confirmed && !call.startUncertain && call.quarantined && leases.get(call.key) === call) {
         leases.delete(call.key); call.quarantined = false;
       }
@@ -96,7 +101,10 @@ export function createGateway({ config: input, publicDir = PUBLIC, backendFactor
     if (params.incarnationId && call.incarnationId && params.incarnationId !== call.incarnationId) return;
     if (params.realtimeSessionId && params.realtimeSessionId !== call.sessionId) return;
     if (call.finished || call.cancelled) {
-      if (method === 'thread/realtime/started' && params.realtimeSessionId === call.sessionId && call.quarantined) void recoverLateStart(call);
+      if (method === 'thread/realtime/started' && params.realtimeSessionId === call.sessionId) {
+        call.started = true; call.incarnationId = params.incarnationId ?? null;
+        if (call.quarantined) void recoverLateStart(call);
+      }
       return;
     }
     let safe;
@@ -172,7 +180,8 @@ export function createGateway({ config: input, publicDir = PUBLIC, backendFactor
         await backend.request('thread/resume', { threadId: contact.threadId, excludeTurns: true });
         if (call.cancelled || call.finished) return;
         call.startSent = true;
-        await backend.request('thread/realtime/start', { threadId: contact.threadId, outputModality: 'audio', realtimeSessionId: call.sessionId, ...contact.realtime, ...(contact.transport === 'webrtc' ? { transport: { type: 'webrtc', sdp: message.sdp } } : {}) }, { onLateSettlement: () => { if (call.cancelled || call.finished) void recoverLateStart(call, true); } });
+        await backend.request('thread/realtime/start', { threadId: contact.threadId, outputModality: 'audio', realtimeSessionId: call.sessionId, ...contact.realtime, ...(contact.transport === 'webrtc' ? { transport: { type: 'webrtc', sdp: message.sdp } } : {}) }, { onLateSettlement: (settlement) => { if (call.cancelled || call.finished) void recoverLateStart(call, settlement); } });
+        call.startAccepted = true;
       } catch (cause) {
         if (call.startSent && cause.code !== 'rpc') call.startUncertain = true;
         if (call.startSent && cause.code === 'rpc') call.startRejected = true;

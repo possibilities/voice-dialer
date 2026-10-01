@@ -134,19 +134,20 @@ test('one lease per server thread, including alias contacts', async (t) => {
   start(b, 'alias'); await b.wait(isStatus('connected'));
 });
 
-test('hangup during delayed start sends prompt and final stop before releasing lease', async (t) => {
+test('hangup during delayed start waits for ownership then stops before releasing lease', async (t) => {
   let deferred;
   const f = await fixture(t, { handler: (socket, request) => {
     if (request.method === 'thread/realtime/start') { deferred = { socket, request }; return true; }
   } });
   const a = await f.client(); start(a); await until(() => deferred);
   a.send({ type: 'hangup' }); await a.wait(isStatus('ending'));
-  await until(() => f.requests.some((request) => request.method === 'thread/realtime/stop'));
+  await delay(15);
+  assert.equal(f.requests.some((request) => request.method === 'thread/realtime/stop'), false);
   assert.equal(f.gateway.leases.size, 1);
   notice(deferred.socket, 'thread/realtime/started', { threadId: 'existing-thread', realtimeSessionId: deferred.request.params.realtimeSessionId });
   reply(deferred.socket, deferred.request);
   await a.wait(isStatus('ended'));
-  assert.equal(f.requests.filter((request) => request.method === 'thread/realtime/stop').length, 2);
+  assert.equal(f.requests.filter((request) => request.method === 'thread/realtime/stop').length, 1);
   assert.equal(a.messages.some(isStatus('connected')), false);
   assert.equal(f.gateway.leases.size, 0);
   assert.equal(f.backendSockets[0].readyState, WebSocket.OPEN);
@@ -281,9 +282,10 @@ test('disconnect during pending start still stops after startup settles', async 
     if (request.method === 'thread/realtime/start') { deferred = { socket, request }; return true; }
   } });
   const a = await f.client(); start(a); await until(() => deferred); a.socket.terminate();
-  await until(() => f.requests.some((request) => request.method === 'thread/realtime/stop'));
+  await delay(15);
+  assert.equal(f.requests.some((request) => request.method === 'thread/realtime/stop'), false);
   reply(deferred.socket, deferred.request); await until(() => f.gateway.leases.size === 0);
-  assert.equal(f.requests.filter((request) => request.method === 'thread/realtime/stop').length, 2);
+  assert.equal(f.requests.filter((request) => request.method === 'thread/realtime/stop').length, 1);
   assert.equal(f.backendSockets[0].readyState, WebSocket.OPEN);
 });
 
@@ -303,4 +305,32 @@ test('an explicitly rejected start does not stop an unrelated pre-existing realt
   const a = await f.client(); start(a); await a.wait(isStatus('ended'));
   assert.equal(f.gateway.leases.size, 0);
   assert.equal(f.requests.some((request) => request.method === 'thread/realtime/stop'), false);
+});
+
+
+test('hangup during a pending rejected start does not stop another client session', async (t) => {
+  let deferred;
+  const f = await fixture(t, { handler: (socket, request) => {
+    if (request.method === 'thread/realtime/start') { deferred = { socket, request }; return true; }
+  } });
+  const a = await f.client(); start(a); await until(() => deferred); a.send({ type: 'hangup' });
+  await a.wait(isStatus('ending')); await delay(15);
+  deferred.socket.send(JSON.stringify({ id: deferred.request.id, error: { code: -32600, message: 'Session already active' } }));
+  await a.wait(isStatus('ended'));
+  assert.equal(f.requests.some(request => request.method === 'thread/realtime/stop'), false);
+  assert.equal(f.gateway.leases.size, 0);
+});
+
+
+test('timed-out unowned start never stops a pre-existing session and late rejection unlocks', async (t) => {
+  let deferred;
+  const f = await fixture(t, { backendTimeout: 40, handler: (socket, request) => {
+    if (request.method === 'thread/realtime/start') { deferred = { socket, request }; return true; }
+  } });
+  const a = await f.client(); start(a); await a.wait(isStatus('ended'));
+  assert.equal(f.requests.some(request => request.method === 'thread/realtime/stop'), false);
+  assert.equal(f.gateway.leases.size, 1);
+  deferred.socket.send(JSON.stringify({ id: deferred.request.id, error: { code: -32600, message: 'Session already active' } }));
+  await until(() => f.gateway.leases.size === 0);
+  assert.equal(f.requests.some(request => request.method === 'thread/realtime/stop'), false);
 });

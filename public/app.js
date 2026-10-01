@@ -47,8 +47,8 @@ function transcript(event) {
   const role = event.role === 'user' ? 'You' : 'Assistant';
   let item = pendingText.get(role);
   if (!item) { item = { role, text:'' }; transcriptItems.push(item); pendingText.set(role,item); }
-  if (event.done) { item.text = event.text || item.text; pendingText.delete(role); }
-  else item.text += event.delta || '';
+  if (event.done) { item.text = (event.text || item.text).slice(-20000); pendingText.delete(role); }
+  else item.text = (item.text + (event.delta || '')).slice(-20000);
   // Bounded in-memory display; no localStorage, cookies, or server transcript logging.
   transcriptItems = transcriptItems.slice(-100);
   $('transcript').replaceChildren();
@@ -68,7 +68,7 @@ $('call').addEventListener('click', () => {
   call=current; current.start();
 });
 $('mute').addEventListener('click', () => call?.toggleMute());
-$('speaker').addEventListener('click', () => { $('remote-audio').play().then(()=>notice('')).catch(()=>notice('Speaker playback is unavailable until the call connects')); });
+$('speaker').addEventListener('click', () => { if (!call || call.state === 'ended') return; call.resumePlayback().then(()=>notice('')).catch(()=>notice('Speaker playback is unavailable until the call connects')); });
 window.addEventListener('pagehide', () => call?.hangup());
 setInterval(() => { if (!startedAt || !call || call.state==='ended') return; const seconds=Math.floor((Date.now()-startedAt)/1000); $('timer').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`; },1000);
 try {

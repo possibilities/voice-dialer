@@ -36,7 +36,7 @@ export class VoiceCall {
         this.pc.ontrack = ({ streams, track }) => {
           if (this.cancelled || !this.audioElement) return;
           this.audioElement.srcObject = streams[0] || new MediaStream([track]);
-          this.audioElement.play().catch(() => this.onNotice('Your browser paused playback. Press Enable speaker.'));
+          this.audioElement.play().catch(() => this.onNotice('Your browser paused playback. Press Speaker.'));
         };
         this.pc.onconnectionstatechange = () => {
           if (this.cancelled) return;
@@ -120,6 +120,11 @@ export class VoiceCall {
     if (method === 'thread/realtime/itemAdded' && params.item?.type === 'input_audio_buffer.speech_started') this.pcm?.clearPlayback();
     if (method === 'thread/realtime/transcript/delta') this.onTranscript({ role: params.role, delta: params.delta });
     if (method === 'thread/realtime/transcript/done') this.onTranscript({ role: params.role, text: params.text, done: true });
+  }
+  async resumePlayback() {
+    if (this.cancelled) return;
+    if (this.pcm) await this.pcm.context?.resume();
+    else await this.audioElement?.play();
   }
   toggleMute() {
     if (this.cancelled || !this.stream) return;
